@@ -1,6 +1,9 @@
-package internal
+package domain
 
-import "time"
+import (
+	"strings"
+	"time"
+)
 
 type TaskPriority string
 
@@ -10,6 +13,21 @@ const (
 	MediumTaskPriority TaskPriority = "med"
 	LowTaskPriority    TaskPriority = "low"
 )
+
+func StrToTaskPriorityDomain(p string) TaskPriority {
+	switch strings.ToLower(p) {
+	case "block":
+		return BlockTaskPriority
+	case "high":
+		return HighTaskPriority
+	case "med":
+		return MediumTaskPriority
+	case "low":
+		return LowTaskPriority
+	default:
+		return ""
+	}
+}
 
 type TaskStatus string
 
@@ -26,4 +44,7 @@ type Task struct {
 	Time     time.Time
 }
 
-type TaskFilters struct{}
+type TaskFilters struct {
+	Status   TaskStatus
+	Priority TaskPriority
+}

@@ -6,6 +6,10 @@ import (
 	"github.com/spf13/cobra"
 )
 
+func init() {
+	rootCmd.PersistentFlags().BoolP("verbose", "v", false, "verbose")
+}
+
 var rootCmd = &cobra.Command{
 	Use:   "task [command] [flags]",
 	Short: "A priority-first task manager for your daily todos",
@@ -37,6 +41,7 @@ All data is persisted in a local SQLite database.`,
 
 func Execute(version string) {
 	rootCmd.Version = version
+	rootCmd.SilenceUsage = true
 	err := rootCmd.Execute()
 	if err != nil {
 		os.Exit(1)

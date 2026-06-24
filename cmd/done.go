@@ -29,7 +29,7 @@ The task ID must be a positive integer.`,
 
 		id, err := strconv.Atoi(args[0])
 		if err != nil {
-			return fmt.Errorf("invalid task ID: %w", err)
+			return cmdError(cmd, err, "invalid task ID")
 		}
 
 		if id <= 0 {
@@ -38,14 +38,14 @@ The task ID must be a positive integer.`,
 
 		repo, err := repository.NewSQLiteRepository()
 		if err != nil {
-			return fmt.Errorf("error initializing repository: %w", err)
+			return cmdError(cmd, err, "failed to connect to the database")
 		}
 		defer repo.Close()
 
 		svc := service.NewService(repo)
 
 		if err := svc.Done(id); err != nil {
-			return fmt.Errorf("failed to mark task as done: %w", err)
+			return cmdError(cmd, err, "could not mark task as done")
 		}
 
 		fmt.Printf("Task %d marked as done\n", id)

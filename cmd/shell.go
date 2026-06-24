@@ -45,23 +45,23 @@ The configuration is stored in your shell's configuration file (.bashrc, .zshrc,
 
 		home, err := os.UserHomeDir()
 		if err != nil {
-			return fmt.Errorf("get user home dir failed: %w", err)
+			return cmdError(cmd, err, "could not determine your home directory")
 		}
 		configFile, err := getShellConfigFileName()
 		if err != nil {
-			return fmt.Errorf("failed to determine shell config file: %w", err)
+			return cmdError(cmd, err, "could not determine your shell config file")
 		}
 		shdir := filepath.Join(home, configFile)
 
 		switch operation {
 		case "enable":
 			if err := enable(shdir); err != nil {
-				return fmt.Errorf("failed to enable shell integration: %w", err)
+				return cmdError(cmd, err, "could not enable shell integration")
 			}
 			fmt.Println("✅ Shell integration enabled. Tasks will be shown on shell startup.")
 		case "disable":
 			if err := disable(shdir); err != nil {
-				return fmt.Errorf("failed to disable shell integration: %w", err)
+				return cmdError(cmd, err, "could not disable shell integration")
 			}
 			fmt.Println("✅ Shell integration disabled. Tasks will not be shown on shell startup.")
 		}

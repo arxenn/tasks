@@ -22,6 +22,9 @@ const (
 )
 
 var (
+	ErrTaskNotFound = errors.New("task not found")
+	ErrInvalidID    = errors.New("invalid task ID")
+
 	UndefinedPriorityErr    error = errors.New("undefined priority")
 	UndefinedStatusErr      error = errors.New("undefined status")
 	ContentCannotBeEmptyErr error = errors.New("content cannot be empty")

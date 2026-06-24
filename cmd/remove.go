@@ -31,7 +31,7 @@ This action cannot be undone. The task ID must be a positive integer.`,
 
 		id, err := strconv.Atoi(args[0])
 		if err != nil {
-			return fmt.Errorf("invalid task ID: %w", err)
+			return cmdError(cmd, err, "invalid task ID")
 		}
 
 		if id <= 0 {
@@ -40,14 +40,14 @@ This action cannot be undone. The task ID must be a positive integer.`,
 
 		repo, err := repository.NewSQLiteRepository()
 		if err != nil {
-			return fmt.Errorf("error initializing repository: %w", err)
+			return cmdError(cmd, err, "failed to connect to the database")
 		}
 		defer repo.Close()
 
 		svc := service.NewService(repo)
 
 		if err := svc.Delete(id); err != nil {
-			return fmt.Errorf("failed to remove task %d: %w", id, err)
+			return cmdError(cmd, err, fmt.Sprintf("could not remove task %d", id))
 		}
 
 		fmt.Printf("Task %d removed successfully\n", id)

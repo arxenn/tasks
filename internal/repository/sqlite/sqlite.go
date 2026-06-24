@@ -2,7 +2,6 @@ package repository
 
 import (
 	"database/sql"
-	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -11,10 +10,7 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
-var (
-	ErrTaskNotFound = errors.New("task not found")
-	ErrInvalidID    = errors.New("invalid task ID")
-)
+var ()
 
 type SQLiteRepository struct {
 	db *sql.DB
@@ -112,7 +108,7 @@ func (r *SQLiteRepository) List(filters domain.TaskFilters) ([]domain.Task, erro
 
 func (r *SQLiteRepository) Update(id int, t domain.Task) error {
 	if id <= 0 {
-		return ErrInvalidID
+		return domain.ErrInvalidID
 	}
 
 	query := strings.Builder{}
@@ -125,7 +121,7 @@ func (r *SQLiteRepository) Update(id int, t domain.Task) error {
 		Scan(&currentTask.Content, &currentTask.Status, &currentTask.Priority)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return ErrTaskNotFound
+			return domain.ErrTaskNotFound
 		}
 		return fmt.Errorf("failed to get current task: %w", err)
 	}
@@ -170,7 +166,7 @@ func (r *SQLiteRepository) Update(id int, t domain.Task) error {
 
 func (r *SQLiteRepository) Delete(id int) error {
 	if id <= 0 {
-		return ErrInvalidID
+		return domain.ErrInvalidID
 	}
 
 	result, err := r.db.Exec("DELETE FROM tasks WHERE id = ?", id)
@@ -184,7 +180,7 @@ func (r *SQLiteRepository) Delete(id int) error {
 	}
 
 	if rowsAffected == 0 {
-		return ErrTaskNotFound
+		return domain.ErrTaskNotFound
 	}
 
 	return nil

@@ -33,19 +33,19 @@ Use the --all (-a) flag to remove ALL tasks, including todo ones.`,
 
 		all, err := cmd.Flags().GetBool("all")
 		if err != nil {
-			return err
+			return cmdError(cmd, err, "failed to read all flag")
 		}
 
 		repo, err := repository.NewSQLiteRepository()
 		if err != nil {
-			return fmt.Errorf("error initializing repository: %w", err)
+			return cmdError(cmd, err, "failed to connect to the database")
 		}
 		defer repo.Close()
 
 		svc := service.NewService(repo)
 
 		if err := svc.Clear(all); err != nil {
-			return fmt.Errorf("failed to clear tasks: %w", err)
+			return cmdError(cmd, err, "could not clear tasks")
 		}
 
 		fmt.Print("Tasks cleared successfully\n")

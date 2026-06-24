@@ -11,9 +11,24 @@ env:
 
 jobs:
   build:
-    runs-on: ubuntu-latest
-    permissions:
-      contents: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            goos: linux
+            goarch: amd64
+            cc: ""
+          - runner: macos-latest
+            goos: darwin
+            goarch: arm64
+            cc: ""
+          - runner: ubuntu-latest
+            goos: windows
+            goarch: amd64
+            cc: "x86_64-w64-mingw32-gcc"
+
+    runs-on: ${{ matrix.runner }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -23,6 +38,12 @@ jobs:
         with:
           go-version: "1.25"
 
+      - name: Install cross-compilation toolchain (Windows)
+        if: matrix.goos == 'windows'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-mingw-w64-x86-64
+
       - name: Get version
         id: version
         run: |
@@ -32,41 +53,31 @@ jobs:
             echo "version=v1.0.0" >> $GITHUB_OUTPUT
           fi
 
-      - name: Install cross-compilation toolchains
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y gcc-aarch64-linux-gnu gcc-mingw-w64-x86-64
-
-      - name: Build binaries
+      - name: Build binary
         run: |
           mkdir -p dist
 
-          # Linux amd64
-          CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -ldflags "-X main.version=${{ steps.version.outputs.version }}" -o dist/task .
-          cd dist && tar -czf task_${{ steps.version.outputs.version }}_linux_amd64.tar.gz task && cd ..
+          EXT=""
+          if [[ "${{ matrix.goos }}" == "windows" ]]; then
+            EXT=".exe"
+          fi
 
-          # Darwin amd64
-          CGO_ENABLED=1 GOOS=darwin GOARCH=amd64 go build -ldflags "-X main.version=${{ steps.version.outputs.version }}" -o dist/task .
-          cd dist && tar -czf task_${{ steps.version.outputs.version }}_darwin_amd64.tar.gz task && cd ..
+          ENV_CC=""
+          if [[ -n "${{ matrix.cc }}" ]]; then
+            ENV_CC="CC=${{ matrix.cc }}"
+          fi
 
-          # Darwin arm64
-          CGO_ENABLED=1 CC=aarch64-linux-gnu-gcc GOOS=darwin GOARCH=arm64 go build -ldflags "-X main.version=${{ steps.version.outputs.version }}" -o dist/task .
-          cd dist && tar -czf task_${{ steps.version.outputs.version }}_darwin_arm64.tar.gz task && cd ..
+          CGO_ENABLED=1 $ENV_CC GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} \
+            go build -ldflags "-X main.version=${{ steps.version.outputs.version }}" \
+            -o dist/task${EXT} .
 
-          # Windows amd64
-          CGO_ENABLED=1 CC=x86_64-w64-mingw32-gcc GOOS=windows GOARCH=amd64 go build -ldflags "-X main.version=${{ steps.version.outputs.version }}" -o dist/task.exe .
-          cd dist && tar -czf task_${{ steps.version.outputs.version }}_windows_amd64.tar.gz task.exe && cd ..
+          cd dist && tar -czf task_${{ steps.version.outputs.version }}_${{ matrix.goos }}_${{ matrix.goarch }}.tar.gz task${EXT} && cd ..
 
-      - name: Generate checksums
-        run: |
-          cd dist
-          sha256sum *.tar.gz > checksums.txt
-
-      - name: Upload build artifacts
+      - name: Upload build artifact
         uses: actions/upload-artifact@v4
         with:
-          name: dist
-          path: dist/
+          name: task_${{ matrix.goos }}_${{ matrix.goarch }}
+          path: dist/*.tar.gz
 
   release:
     needs: build
@@ -74,11 +85,11 @@ jobs:
     permissions:
       contents: write
     steps:
-      - name: Download build artifacts
+      - name: Download all build artifacts
         uses: actions/download-artifact@v4
         with:
-          name: dist
           path: dist/
+          merge-multiple: true
 
       - name: Get version
         id: version
@@ -88,6 +99,11 @@ jobs:
           else
             echo "version=v1.0.0" >> $GITHUB_OUTPUT
           fi
+
+      - name: Generate checksums
+        run: |
+          cd dist
+          sha256sum *.tar.gz > checksums.txt
 
       - name: Create Release
         uses: softprops/action-gh-release@v1
@@ -99,7 +115,7 @@ jobs:
 
             ### Platform Support
             - Linux (amd64)
-            - macOS (amd64, arm64)
+            - macOS (arm64)
             - Windows (amd64)
 
             ### Verification

@@ -34,12 +34,12 @@ Valid priority values: low, medium, high, block (default: medium)`,
 
 		priority, err := cmd.Flags().GetString("priority")
 		if err != nil {
-			return err
+			return cmdError(cmd, err, "failed to read priority flag")
 		}
 
 		repo, err := repository.NewSQLiteRepository()
 		if err != nil {
-			return fmt.Errorf("error initializing repository: %w", err)
+			return cmdError(cmd, err, "failed to connect to the database")
 		}
 		defer repo.Close()
 
@@ -47,7 +47,7 @@ Valid priority values: low, medium, high, block (default: medium)`,
 
 		id, err := svc.Add(content, priority)
 		if err != nil {
-			return fmt.Errorf("add task failed: %w", err)
+			return cmdError(cmd, err, "could not add task")
 		}
 
 		fmt.Printf("Task added successfully (ID: %d)\n", id)

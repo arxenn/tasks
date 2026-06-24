@@ -36,22 +36,22 @@ Use the -p or --priority flag to filter by priority.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		priority, err := cmd.Flags().GetString("priority")
 		if err != nil {
-			return err
+			return cmdError(cmd, err, "failed to read priority flag")
 		}
 
 		done, err := cmd.Flags().GetBool("done")
 		if err != nil {
-			return err
+			return cmdError(cmd, err, "failed to read done flag")
 		}
 
 		num, err := cmd.Flags().GetInt("number")
 		if err != nil {
-			return err
+			return cmdError(cmd, err, "failed to read number flag")
 		}
 
 		repo, err := repository.NewSQLiteRepository()
 		if err != nil {
-			return fmt.Errorf("error initializing repository: %w", err)
+			return cmdError(cmd, err, "failed to connect to the database")
 		}
 		defer repo.Close()
 
@@ -59,7 +59,7 @@ Use the -p or --priority flag to filter by priority.`,
 
 		tasks, err := svc.List(priority, done, num)
 		if err != nil {
-			return fmt.Errorf("failed to list tasks: %w", err)
+			return cmdError(cmd, err, "could not list tasks")
 		}
 
 		if len(tasks) == 0 {
@@ -126,7 +126,7 @@ func formatDuration(d time.Duration) string {
 	return strings.Join(parts, " ")
 }
 
-// ANCI colors
+// ANSI colors
 const (
 	ColorReset  = "\033[0m"
 	ColorRed    = "\033[31m"

@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/arxenn/tasks/internal/domain"
-	_ "github.com/mattn/go-sqlite3"
+	_ "modernc.org/sqlite"
 )
 
 var ()
@@ -24,7 +24,7 @@ func NewSQLiteRepository() (*SQLiteRepository, error) {
 	}
 	dbPath := fmt.Sprintf("%s/%s.db", appDataDir, appName)
 
-	db, err := sql.Open("sqlite3", dbPath)
+	db, err := sql.Open("sqlite", dbPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %w", err)
 	}

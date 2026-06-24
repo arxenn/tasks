@@ -3,128 +3,76 @@ name: Release
 on:
   push:
     tags:
-      - "v*"
+      - 'v*'
   workflow_dispatch:
 
-env:
-  BINARY_NAME: task
+permissions:
+  contents: write
 
 jobs:
   build:
+    name: Build
+    runs-on: ubuntu-latest
     strategy:
-      fail-fast: false
       matrix:
         include:
-          - runner: ubuntu-latest
-            goos: linux
+          - goos: linux
             goarch: amd64
-            cc: ""
-          - runner: macos-latest
-            goos: darwin
+            output: task-linux-amd64
+          - goos: linux
             goarch: arm64
-            cc: ""
-          - runner: ubuntu-latest
-            goos: windows
+            output: task-linux-arm64
+          - goos: darwin
+            goarch: arm64
+            output: task-darwin-arm64
+          - goos: windows
             goarch: amd64
-            cc: "x86_64-w64-mingw32-gcc"
+            output: task-windows-amd64.exe
 
-    runs-on: ${{ matrix.runner }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
       - name: Set up Go
-        uses: actions/setup-go@v4
+        uses: actions/setup-go@v5
         with:
-          go-version: "1.25"
-
-      - name: Install cross-compilation toolchain (Windows)
-        if: matrix.goos == 'windows'
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y gcc-mingw-w64-x86-64
-
-      - name: Get version
-        id: version
-        run: |
-          if [[ $GITHUB_REF == refs/tags/* ]]; then
-            echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
-          else
-            echo "version=v1.0.0" >> $GITHUB_OUTPUT
-          fi
+          go-version: '1.25.0'
 
       - name: Build binary
-        run: |
-          mkdir -p dist
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          CGO_ENABLED: 0
+        run: go build -ldflags "-X main.version=${{ github.ref_name }}" -o ${{ matrix.output }} .
 
-          EXT=""
-          if [[ "${{ matrix.goos }}" == "windows" ]]; then
-            EXT=".exe"
-          fi
-
-          ENV_CC=""
-          if [[ -n "${{ matrix.cc }}" ]]; then
-            ENV_CC="CC=${{ matrix.cc }}"
-          fi
-
-          CGO_ENABLED=1 $ENV_CC GOOS=${{ matrix.goos }} GOARCH=${{ matrix.goarch }} \
-            go build -ldflags "-X main.version=${{ steps.version.outputs.version }}" \
-            -o dist/task${EXT} .
-
-          cd dist && tar -czf task_${{ steps.version.outputs.version }}_${{ matrix.goos }}_${{ matrix.goarch }}.tar.gz task${EXT} && cd ..
-
-      - name: Upload build artifact
+      - name: Upload artifact
         uses: actions/upload-artifact@v4
         with:
-          name: task_${{ matrix.goos }}_${{ matrix.goarch }}
-          path: dist/*.tar.gz
+          name: ${{ matrix.output }}
+          path: ${{ matrix.output }}
 
   release:
+    name: Release
     needs: build
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     steps:
-      - name: Download all build artifacts
+      - name: Download all artifacts
         uses: actions/download-artifact@v4
         with:
-          path: dist/
+          path: ./artifacts
           merge-multiple: true
-
-      - name: Get version
-        id: version
-        run: |
-          if [[ $GITHUB_REF == refs/tags/* ]]; then
-            echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
-          else
-            echo "version=v1.0.0" >> $GITHUB_OUTPUT
-          fi
 
       - name: Generate checksums
         run: |
-          cd dist
-          sha256sum *.tar.gz > checksums.txt
+          cd artifacts
+          sha256sum * > checksums.txt
 
       - name: Create Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
-          tag_name: ${{ steps.version.outputs.version }}
-          name: Release ${{ steps.version.outputs.version }}
-          body: |
-            ## task ${{ steps.version.outputs.version }}
-
-            ### Platform Support
-            - Linux (amd64)
-            - macOS (arm64)
-            - Windows (amd64)
-
-            ### Verification
-            Use the checksums.txt file to verify download integrity:
-            ```bash
-            sha256sum -c checksums.txt
-            ```
-          files: |
-            dist/*.tar.gz
-            dist/checksums.txt
+          files: ./artifacts/*
           draft: false
           prerelease: false
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

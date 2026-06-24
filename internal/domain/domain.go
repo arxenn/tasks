@@ -64,7 +64,7 @@ func StrToTaskStatusDomain(s string) (TaskStatus, error) {
 	case "done":
 		return DoneTaskStatus, nil
 	default:
-		return "", UndefinedPriorityErr
+		return "", UndefinedStatusErr
 	}
 }
 

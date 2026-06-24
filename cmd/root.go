@@ -25,9 +25,8 @@ All data is persisted in a local SQLite database.`,
   # Remove a task
   task remove 15
 
-  # Get help for a specific command
+ # Get help for a specific command
   task help add`,
-	Version: "1.0.0",
 	Run: func(cmd *cobra.Command, args []string) {
 		if len(args) == 0 {
 			cmd.Help()
@@ -36,7 +35,8 @@ All data is persisted in a local SQLite database.`,
 	},
 }
 
-func Execute() {
+func Execute(version string) {
+	rootCmd.Version = version
 	err := rootCmd.Execute()
 	if err != nil {
 		os.Exit(1)

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path"
+	"path/filepath"
 	"runtime"
 
 	"github.com/spf13/cobra"
@@ -47,7 +47,11 @@ The configuration is stored in your shell's configuration file (.bashrc, .zshrc,
 		if err != nil {
 			return fmt.Errorf("get user home dir failed: %w", err)
 		}
-		shdir := path.Join(home, getShellConfigFileName())
+		configFile, err := getShellConfigFileName()
+		if err != nil {
+			return fmt.Errorf("failed to determine shell config file: %w", err)
+		}
+		shdir := filepath.Join(home, configFile)
 
 		switch operation {
 		case "enable":
@@ -130,6 +134,7 @@ func addCommandToShellConfig(shdir string) error {
 	if err != nil {
 		return fmt.Errorf("open config file at %s failed: %w", shdir, err)
 	}
+	defer f.Close()
 
 	if _, err := f.WriteString(TasksListShellCommand + "\n"); err != nil {
 		return fmt.Errorf("append command to config file failed: %w", err)
@@ -157,19 +162,24 @@ func removeCommandFromShellConfig(shdir string) error {
 	return nil
 }
 
-func getShellConfigFileName() string {
+func getShellConfigFileName() (string, error) {
+	sh := os.Getenv("SHELL")
 	switch runtime.GOOS {
 	case "darwin", "linux":
-		sh := os.Getenv("SHELL")
-		switch sh {
-		case "/usr/bin/zsh":
-			return ".zshrc"
-		case "/usr/bin/bash":
-			return ".bashrc"
+		switch filepath.Base(sh) {
+		case "zsh":
+			return ".zshrc", nil
+		case "bash":
+			return ".bashrc", nil
+		case "sh", "dash", "ash":
+			return ".profile", nil
 		}
 
 	case "windows":
+		return filepath.Join(
+			"Documents", "WindowsPowerShell", "Microsoft.PowerShell_profile.ps1",
+		), nil
 	}
 
-	return ""
+	return "", fmt.Errorf("could not determine shell config file (SHELL=%q)", sh)
 }

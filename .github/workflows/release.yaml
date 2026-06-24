@@ -1,0 +1,114 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+env:
+  BINARY_NAME: task
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Go
+        uses: actions/setup-go@v4
+        with:
+          go-version: "1.25"
+
+      - name: Get version
+        id: version
+        run: |
+          if [[ $GITHUB_REF == refs/tags/* ]]; then
+            echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          else
+            echo "version=v1.0.0" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Install cross-compilation toolchains
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gcc-aarch64-linux-gnu gcc-mingw-w64-x86-64
+
+      - name: Build binaries
+        run: |
+          mkdir -p dist
+
+          # Linux amd64
+          CGO_ENABLED=1 GOOS=linux GOARCH=amd64 go build -ldflags "-X main.version=${{ steps.version.outputs.version }}" -o dist/task .
+          cd dist && tar -czf task_${{ steps.version.outputs.version }}_linux_amd64.tar.gz task && cd ..
+
+          # Darwin amd64
+          CGO_ENABLED=1 GOOS=darwin GOARCH=amd64 go build -ldflags "-X main.version=${{ steps.version.outputs.version }}" -o dist/task .
+          cd dist && tar -czf task_${{ steps.version.outputs.version }}_darwin_amd64.tar.gz task && cd ..
+
+          # Darwin arm64
+          CGO_ENABLED=1 CC=aarch64-linux-gnu-gcc GOOS=darwin GOARCH=arm64 go build -ldflags "-X main.version=${{ steps.version.outputs.version }}" -o dist/task .
+          cd dist && tar -czf task_${{ steps.version.outputs.version }}_darwin_arm64.tar.gz task && cd ..
+
+          # Windows amd64
+          CGO_ENABLED=1 CC=x86_64-w64-mingw32-gcc GOOS=windows GOARCH=amd64 go build -ldflags "-X main.version=${{ steps.version.outputs.version }}" -o dist/task.exe .
+          cd dist && tar -czf task_${{ steps.version.outputs.version }}_windows_amd64.tar.gz task.exe && cd ..
+
+      - name: Generate checksums
+        run: |
+          cd dist
+          sha256sum *.tar.gz > checksums.txt
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Get version
+        id: version
+        run: |
+          if [[ $GITHUB_REF == refs/tags/* ]]; then
+            echo "version=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+          else
+            echo "version=v1.0.0" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.version.outputs.version }}
+          name: Release ${{ steps.version.outputs.version }}
+          body: |
+            ## task ${{ steps.version.outputs.version }}
+
+            ### Platform Support
+            - Linux (amd64)
+            - macOS (amd64, arm64)
+            - Windows (amd64)
+
+            ### Verification
+            Use the checksums.txt file to verify download integrity:
+            ```bash
+            sha256sum -c checksums.txt
+            ```
+          files: |
+            dist/*.tar.gz
+            dist/checksums.txt
+          draft: false
+          prerelease: false

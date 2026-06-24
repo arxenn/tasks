@@ -115,24 +115,18 @@ func (r *SQLiteRepository) Update(id int, t domain.Task) error {
 		return ErrInvalidID
 	}
 
-	var exists bool
-	err := r.db.QueryRow("SELECT EXISTS(SELECT 1 FROM tasks WHERE id = ?)", id).Scan(&exists)
-	if err != nil {
-		return fmt.Errorf("failed to check task existence: %w", err)
-	}
-	if !exists {
-		return ErrTaskNotFound
-	}
-
 	query := strings.Builder{}
 	query.WriteString("UPDATE tasks SET ")
 	args := []any{}
 	updates := []string{}
 
 	var currentTask domain.Task
-	err = r.db.QueryRow("SELECT content, status, priority FROM tasks WHERE id = ?", id).
+	err := r.db.QueryRow("SELECT content, status, priority FROM tasks WHERE id = ?", id).
 		Scan(&currentTask.Content, &currentTask.Status, &currentTask.Priority)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			return ErrTaskNotFound
+		}
 		return fmt.Errorf("failed to get current task: %w", err)
 	}
 
@@ -144,6 +138,10 @@ func (r *SQLiteRepository) Update(id int, t domain.Task) error {
 	if t.Status != "" && t.Status != currentTask.Status {
 		updates = append(updates, "status = ?")
 		args = append(args, t.Status)
+		if t.Status == domain.DoneTaskStatus {
+			updates = append(updates, "done_at = ?")
+			args = append(args, time.Now())
+		}
 	}
 
 	if t.Priority != "" && t.Priority != currentTask.Priority {
@@ -153,9 +151,6 @@ func (r *SQLiteRepository) Update(id int, t domain.Task) error {
 
 	if len(updates) == 0 {
 		return nil
-	} else {
-		updates = append(updates, "done_at = ?")
-		args = append(args, time.Now())
 	}
 
 	query.WriteString(updates[0])

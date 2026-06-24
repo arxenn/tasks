@@ -1,4 +1,4 @@
-package filerepo
+package repository
 
 import (
 	"fmt"

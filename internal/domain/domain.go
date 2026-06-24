@@ -1,8 +1,15 @@
 package domain
 
 import (
+	"errors"
 	"strings"
 	"time"
+)
+
+const (
+	DefaulListCountNumber = 3
+
+	ListTimeDisplayFormat = "01/02 15:04"
 )
 
 type TaskPriority string
@@ -10,22 +17,36 @@ type TaskPriority string
 const (
 	BlockTaskPriority  TaskPriority = "block"
 	HighTaskPriority   TaskPriority = "high"
-	MediumTaskPriority TaskPriority = "med"
+	MediumTaskPriority TaskPriority = "medium"
 	LowTaskPriority    TaskPriority = "low"
 )
 
-func StrToTaskPriorityDomain(p string) TaskPriority {
+var (
+	UndefinedPriorityErr    error = errors.New("undefined priority")
+	UndefinedStatusErr      error = errors.New("undefined status")
+	ContentCannotBeEmptyErr error = errors.New("content cannot be empty")
+)
+
+// stores numerical value of priority for sorting purposes
+var PriorityToIntMap = map[TaskPriority]int{
+	BlockTaskPriority:  4,
+	HighTaskPriority:   3,
+	MediumTaskPriority: 2,
+	LowTaskPriority:    1,
+}
+
+func StrToTaskPriorityDomain(p string) (TaskPriority, error) {
 	switch strings.ToLower(p) {
 	case "block":
-		return BlockTaskPriority
+		return BlockTaskPriority, nil
 	case "high":
-		return HighTaskPriority
-	case "med":
-		return MediumTaskPriority
+		return HighTaskPriority, nil
+	case "medium":
+		return MediumTaskPriority, nil
 	case "low":
-		return LowTaskPriority
+		return LowTaskPriority, nil
 	default:
-		return ""
+		return "", UndefinedPriorityErr
 	}
 }
 
@@ -36,15 +57,28 @@ const (
 	TodoTaskStatus TaskStatus = "todo"
 )
 
+func StrToTaskStatusDomain(s string) (TaskStatus, error) {
+	switch strings.ToLower(s) {
+	case "todo":
+		return TodoTaskStatus, nil
+	case "done":
+		return DoneTaskStatus, nil
+	default:
+		return "", UndefinedPriorityErr
+	}
+}
+
 type Task struct {
-	ID       int
-	Content  string
-	Priority TaskPriority
-	Status   TaskStatus
-	Time     time.Time
+	ID        int
+	Content   string
+	Priority  TaskPriority
+	Status    TaskStatus
+	CreatedAt time.Time
+	DoneAt    *time.Time
 }
 
 type TaskFilters struct {
-	Status   TaskStatus
 	Priority TaskPriority
+	Done     bool
+	Limit    int
 }

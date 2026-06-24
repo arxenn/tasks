@@ -7,4 +7,5 @@ type Repository interface {
 	List(filters domain.TaskFilters) ([]domain.Task, error)
 	Update(id int, t domain.Task) error
 	Delete(id int) error
+	Clear(all bool) error
 }
